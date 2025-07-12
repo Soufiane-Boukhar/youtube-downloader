@@ -2,6 +2,8 @@ from fasthtml.common import *
 import yt_dlp
 import os
 import re
+import tempfile
+import shutil
 
 # Initialize FastHTML app with Tailwind CSS and viewport meta tag
 app, rt = fast_app(
@@ -11,9 +13,8 @@ app, rt = fast_app(
     )
 )
 
-# Ensure downloads directory exists
-DOWNLOAD_DIR = "downloads"
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+# Use temporary directory for downloads (Vercel's file system is ephemeral)
+DOWNLOAD_DIR = tempfile.gettempdir()
 
 def download_youtube(url, output_format, quality=None):
     try:
@@ -41,15 +42,13 @@ def download_youtube(url, output_format, quality=None):
         elif output_format.lower() == "mp3":
             ydl_opts['format'] = 'bestaudio/best'
             ydl_opts['outtmpl'] = f'{DOWNLOAD_DIR}/%(title)s.%(ext)s'
-            ydl_opts['postprocessors'] = [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }]
-
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
+                temp_path = ydl.prepare_filename(info)
                 audio_path = f"{DOWNLOAD_DIR}/{info['title']}.mp3"
+                # Rename audio file to .mp3 (assuming m4a or similar format)
+                if not temp_path.endswith('.mp3'):
+                    shutil.move(temp_path, audio_path)
                 return {"success": True, "message": f"Converted to MP3 and saved as: {audio_path}", "file_path": audio_path}
 
         else:
@@ -115,7 +114,7 @@ def get():
                         Button(
                             "Download",
                             type="submit",
-                            cls="w-full bg-blue-600 text-white p-3 rounded-lg mt-4 hover:bg-blue-700 transition"
+                               cls="w-full bg-blue-600 text-white p-3 rounded-lg mt-4 hover:bg-blue-700 transition"
                         ),
                         hx_post="/download",
                         hx_target="#result",
@@ -175,7 +174,13 @@ async def post(url: str, output_format: str, quality: str = None):
 def get(filename: str):
     file_path = os.path.join(DOWNLOAD_DIR, filename)
     if os.path.exists(file_path):
-        return FileResponse(file_path)
+        response = FileResponse(file_path)
+        # Optionally clean up the file after serving to manage ephemeral storage
+        try:
+            os.remove(file_path)
+        except:
+            pass
+        return response
     return Div(P("File not found.", cls="text-red-600"), cls="text-center")
 
 serve()
