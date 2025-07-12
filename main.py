@@ -28,7 +28,7 @@ def download_youtube(url, output_format, quality=None):
             'outtmpl': '%(title)s.%(ext)s',  # Placeholder, we'll use buffer
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
             'username': 'medobkh6@gmail.com',  # Hardcoded Gmail email
-            'password': 'aaa1998.',  # Hardcoded password or app password
+            'password': 'aaa1998aaa',  # Hardcoded password or app password
             'http_headers': {
                 'Referer': 'https://www.youtube.com',
                 'Accept-Language': 'en-US,en;q=0.9',
