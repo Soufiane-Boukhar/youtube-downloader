@@ -1,11 +1,10 @@
 from fasthtml.common import *
 import yt_dlp
-import os
 import re
-import tempfile
-import shutil
 import logging
 import traceback
+from io import BytesIO
+from starlette.responses import StreamingResponse
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -19,43 +18,42 @@ app, rt = fast_app(
     )
 )
 
-# Use /tmp for downloads (Vercel's only writable directory)
-DOWNLOAD_DIR = "/tmp/downloads"
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-
 def download_youtube(url, output_format, quality=None):
     try:
         # Sanitize filename to avoid issues with special characters
         safe_title = lambda title: re.sub(r'[^\w\s-]', '', title.replace(' ', '_'))
         ydl_opts = {
             'noplaylist': True,
-            'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s',
-            # Add cookies to bypass bot detection
+            'outtmpl': '%(title)s.%(ext)s',  # Placeholder, we'll use buffer
             'cookiefile': os.getenv('YOUTUBE_COOKIES', 'cookies.txt'),
-            # Mimic browser user-agent
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
 
+        buffer = BytesIO()
+        ydl_opts['outtmpl'] = '-'  # Output to stdout (buffer)
+        ydl_opts['quiet'] = True
+
         if output_format.lower() == "mp4":
-            # Use progressive streams to avoid ffmpeg dependency
             ydl_opts['format'] = f'best[height<={quality[:-1]}]' if quality else 'best[height<=720]'
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                output_path = ydl.prepare_filename(info)
-                if not output_path.endswith('.mp4'):
-                    output_path = f"{DOWNLOAD_DIR}/{safe_title(info['title'])}.mp4"
-                    shutil.move(ydl.prepare_filename(info), output_path)
-                return {"success": True, "message": f"Downloaded to: {output_path}", "file_path": output_path}
+                info = ydl.extract_info(url, download=False)
+                filename = f"{safe_title(info['title'])}.mp4"
+                ydl_opts['outtmpl'] = '-'  # Stream to buffer
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+                    buffer.seek(0)
+                return {"success": True, "buffer": buffer, "filename": filename, "ext": "mp4"}
 
         elif output_format.lower() == "mp3":
-            # Download best audio and rename to .mp3
             ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio'
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                temp_path = ydl.prepare_filename(info)
-                audio_path = f"{DOWNLOAD_DIR}/{safe_title(info['title'])}.mp3"
-                shutil.move(temp_path, audio_path)
-                return {"success": True, "message": f"Converted to MP3 and saved as: {audio_path}", "file_path": audio_path}
+                info = ydl.extract_info(url, download=False)
+                filename = f"{safe_title(info['title'])}.mp3"
+                ydl_opts['outtmpl'] = '-'  # Stream to buffer
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+                    buffer.seek(0)
+                return {"success": True, "buffer": buffer, "filename": filename, "ext": "mp3"}
 
         else:
             return {"success": False, "message": "Invalid format. Choose 'mp3' or 'mp4'."}
@@ -170,38 +168,19 @@ async def post(url: str, output_format: str, quality: str = None):
     try:
         result = download_youtube(url, output_format, quality)
         if result["success"]:
-            # Extract filename from file_path
-            filename = os.path.basename(result["file_path"])
-            return Div(
-                P(result["message"], cls="text-green-600"),
-                A(
-                    "Download File",
-                    href=f"/downloads/{filename}",
-                    cls="inline-block bg-blue-600 text-white p-2 rounded-lg mt-4 hover:bg-blue-700 transition"
-                ),
-                cls="text-center"
+            media_type = "video/mp4" if output_format.lower() == "mp4" else "audio/mpeg"
+            headers = {
+                "Content-Disposition": f'attachment; filename="{result["filename"]}"'
+            }
+            return StreamingResponse(
+                content=iter([result["buffer"].getvalue()]),
+                media_type=media_type,
+                headers=headers
             )
         else:
             return Div(P(result["message"], cls="text-red-600"), cls="text-center")
     except Exception as e:
         logger.error(f"Error in /download: {str(e)}")
-        logger.error(traceback.format_exc())
-        return Div(P(f"Error: {str(e)}", cls="text-red-600"), cls="text-center")
-
-@rt("/downloads/{filename}")
-def get(filename: str):
-    try:
-        file_path = os.path.join(DOWNLOAD_DIR, filename)
-        if os.path.exists(file_path):
-            response = FileResponse(file_path)
-            try:
-                os.remove(file_path)  # Clean up after serving
-            except:
-                logger.warning(f"Failed to clean up file: {file_path}")
-            return response
-        return Div(P("File not found.", cls="text-red-600"), cls="text-center")
-    except Exception as e:
-        logger.error(f"Error in /downloads/{filename}: {str(e)}")
         logger.error(traceback.format_exc())
         return Div(P(f"Error: {str(e)}", cls="text-red-600"), cls="text-center")
 
