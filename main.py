@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Copy cookies.txt to /tmp if it exists
 COOKIE_SRC = "cookies.txt"  # Path to cookies.txt in your project
-COOKIE_DEST = "/cookies.txt"
+COOKIE_DEST = "/tmp/cookies.txt"  # Use /tmp for writable storage
 if os.path.exists(COOKIE_SRC):
     try:
         shutil.copy(COOKIE_SRC, COOKIE_DEST)
