@@ -5,10 +5,24 @@ import logging
 import traceback
 from io import BytesIO
 from starlette.responses import StreamingResponse
+import shutil
+import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Copy cookies.txt to /tmp if it exists
+COOKIE_SRC = "cookies.txt"  # Path to cookies.txt in your project
+COOKIE_DEST = "/tmp/cookies.txt"
+if os.path.exists(COOKIE_SRC):
+    try:
+        shutil.copy(COOKIE_SRC, COOKIE_DEST)
+        logger.info(f"Copied cookies.txt to {COOKIE_DEST}")
+    except Exception as e:
+        logger.error(f"Failed to copy cookies.txt: {str(e)}")
+else:
+    logger.warning("cookies.txt not found in project directory")
 
 # Initialize FastHTML app with Tailwind CSS and viewport meta tag
 app, rt = fast_app(
@@ -25,8 +39,8 @@ def download_youtube(url, output_format, quality=None):
         ydl_opts = {
             'noplaylist': True,
             'outtmpl': '%(title)s.%(ext)s',  # Placeholder, we'll use buffer
-            'cookiefile': os.getenv('YOUTUBE_COOKIES', 'cookies.txt'),
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'cookiefile': os.getenv('YOUTUBE_COOKIES', COOKIE_DEST),
         }
 
         buffer = BytesIO()
