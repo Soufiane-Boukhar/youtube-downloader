@@ -5,29 +5,11 @@ import logging
 import traceback
 from io import BytesIO
 from starlette.responses import StreamingResponse
-import shutil
 import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Copy cookies.txt to /tmp if it exists
-COOKIE_SRC = "cookies.txt"  # Path to cookies.txt in your project
-COOKIE_DEST = "/tmp/cookies.txt"  # Use /tmp for writable storage
-if os.path.exists(COOKIE_SRC):
-    try:
-        with open(COOKIE_SRC, 'r') as f:
-            content = f.read()
-            if '# Netscape HTTP Cookie File' not in content:
-                logger.warning("cookies.txt is not in Netscape format, skipping copy")
-            else:
-                shutil.copy(COOKIE_SRC, COOKIE_DEST)
-                logger.info(f"Copied cookies.txt to {COOKIE_DEST}")
-    except Exception as e:
-        logger.error(f"Failed to copy cookies.txt: {str(e)}")
-else:
-    logger.warning("cookies.txt not found in project directory")
 
 # Initialize FastHTML app with Tailwind CSS and viewport meta tag
 app, rt = fast_app(
@@ -44,8 +26,13 @@ def download_youtube(url, output_format, quality=None):
         ydl_opts = {
             'noplaylist': True,
             'outtmpl': '%(title)s.%(ext)s',  # Placeholder, we'll use buffer
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'cookiefile': os.getenv('YOUTUBE_COOKIES', COOKIE_DEST) if os.path.exists(COOKIE_DEST) and '# Netscape HTTP Cookie File' in open(COOKIE_DEST).read() else None,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+            'username': 'medobkh6@gmail.com',  # Hardcoded Gmail email
+            'password': 'aaa1998.',  # Hardcoded password or app password
+            'http_headers': {
+                'Referer': 'https://www.youtube.com',
+                'Accept-Language': 'en-US,en;q=0.9',
+            },
         }
 
         buffer = BytesIO()

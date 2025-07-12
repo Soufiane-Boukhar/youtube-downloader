@@ -1,3 +1,0 @@
-# Netscape HTTP Cookie File
-.youtube.com	TRUE	/	FALSE	1698777600	session_id	abc123
-.youtube.com	TRUE	/	TRUE	1698777600	auth_token	def456
