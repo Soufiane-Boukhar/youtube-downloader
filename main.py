@@ -17,8 +17,13 @@ COOKIE_SRC = "cookies.txt"  # Path to cookies.txt in your project
 COOKIE_DEST = "/tmp/cookies.txt"  # Use /tmp for writable storage
 if os.path.exists(COOKIE_SRC):
     try:
-        shutil.copy(COOKIE_SRC, COOKIE_DEST)
-        logger.info(f"Copied cookies.txt to {COOKIE_DEST}")
+        with open(COOKIE_SRC, 'r') as f:
+            content = f.read()
+            if '# Netscape HTTP Cookie File' not in content:
+                logger.warning("cookies.txt is not in Netscape format, skipping copy")
+            else:
+                shutil.copy(COOKIE_SRC, COOKIE_DEST)
+                logger.info(f"Copied cookies.txt to {COOKIE_DEST}")
     except Exception as e:
         logger.error(f"Failed to copy cookies.txt: {str(e)}")
 else:
@@ -40,7 +45,7 @@ def download_youtube(url, output_format, quality=None):
             'noplaylist': True,
             'outtmpl': '%(title)s.%(ext)s',  # Placeholder, we'll use buffer
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'cookiefile': os.getenv('YOUTUBE_COOKIES', COOKIE_DEST),
+            'cookiefile': os.getenv('YOUTUBE_COOKIES', COOKIE_DEST) if os.path.exists(COOKIE_DEST) and '# Netscape HTTP Cookie File' in open(COOKIE_DEST).read() else None,
         }
 
         buffer = BytesIO()
