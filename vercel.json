@@ -1,0 +1,15 @@
+{
+  "builds": [
+    {
+      "src": "main.py",
+      "use": "@vercel/python",
+      "config": {
+        "installCommand": "pip install -r requirements.txt",
+        "buildCommand": ""
+      }
+    }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "main.py" }
+  ]
+}
