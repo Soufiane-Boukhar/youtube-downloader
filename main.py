@@ -6,6 +6,7 @@ import traceback
 from io import BytesIO
 from starlette.responses import StreamingResponse
 import os
+from moviepy.editor import VideoFileClip
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -23,43 +24,52 @@ def download_youtube(url, output_format, quality=None):
     try:
         # Sanitize filename to avoid issues with special characters
         safe_title = lambda title: re.sub(r'[^\w\s-]', '', title.replace(' ', '_'))
+        
+        # Initialize yt-dlp options with authentication
         ydl_opts = {
             'noplaylist': True,
-            'outtmpl': '%(title)s.%(ext)s',  # Placeholder, we'll use buffer
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-            'username': 'medobkh6@gmail.com',  # Hardcoded Gmail email
-            'password': 'aaa1998aaa',  # Hardcoded password or app password
+            'username': 'medobkh6@gmail.com',  # Replace with your Gmail email
+            'password': 'aaa1998aaa',  # Replace with your password or app password
             'http_headers': {
                 'Referer': 'https://www.youtube.com',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Origin': 'https://www.youtube.com',
             },
-            'ignoreerrors': False,  # Set to True to skip errors, but keep False for now to debug
             'retries': 3,  # Retry up to 3 times for network issues
-            'skip_download': False,  # Ensure download attempt
         }
 
-        buffer = BytesIO()
-        ydl_opts['outtmpl'] = '-'  # Output to stdout (buffer)
-        ydl_opts['quiet'] = True
-
         if output_format.lower() == "mp4":
-            ydl_opts['format'] = f'best[height<={quality[:-1]}]' if quality else 'best[height<=720]'
+            # Adjust format for specified quality
+            ydl_opts['format'] = f'bestvideo[height<={quality[:-1]}]+bestaudio/best' if quality else 'bestvideo[height<=720]+bestaudio/best'
+            ydl_opts['outtmpl'] = '%(title)s.%(ext)s'  # Output filename template
+            buffer = BytesIO()
+            ydl_opts['outtmpl'] = '-'  # Stream to buffer
+            ydl_opts['quiet'] = True
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 filename = f"{safe_title(info['title'])}.mp4"
-                ydl_opts['outtmpl'] = '-'  # Stream to buffer
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
                     buffer.seek(0)
                 return {"success": True, "buffer": buffer, "filename": filename, "ext": "mp4"}
 
         elif output_format.lower() == "mp3":
-            ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio'
+            ydl_opts['format'] = 'bestaudio/best'
+            ydl_opts['outtmpl'] = 'temp_audio.%(ext)s'
+            ydl_opts['postprocessors'] = [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }]
+            buffer = BytesIO()
+            ydl_opts['outtmpl'] = '-'  # Stream to buffer
+            ydl_opts['quiet'] = True
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 filename = f"{safe_title(info['title'])}.mp3"
-                ydl_opts['outtmpl'] = '-'  # Stream to buffer
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
                     buffer.seek(0)
@@ -86,7 +96,6 @@ def get():
                 twitter_site="@vercel",
             ),
             Div(
-                # Navigation Bar
                 Nav(
                     Div(
                         A("YouTube Downloader", href="/", cls="text-2xl font-bold text-white"),
@@ -100,7 +109,6 @@ def get():
                     ),
                     cls="bg-gray-900 shadow-md"
                 ),
-                # Hero Section
                 Div(
                     Div(
                         H1("YouTube Video & Audio Downloader", cls="text-4xl md:text-5xl font-bold text-gray-800 mb-4 text-center"),
@@ -108,7 +116,6 @@ def get():
                             "Download YouTube videos in MP4 or MP3 format with ease. Built with FastHTML and deployable on Vercel.",
                             cls="text-lg text-gray-600 mb-6 text-center max-w-2xl mx-auto"
                         ),
-                        # Download Form
                         Form(
                             Input(
                                 type="text",
@@ -143,7 +150,6 @@ def get():
                     ),
                     cls="bg-gray-100"
                 ),
-                # Footer
                 Div(
                     P(
                         "Built with ",
@@ -156,7 +162,6 @@ def get():
                 ),
                 cls="min-h-screen flex flex-col"
             ),
-            # JavaScript to toggle resolution input visibility
             Script("""
                 document.querySelector('select[name="output_format"]').addEventListener('change', function() {
                     const qualityInput = document.querySelector('input[name="quality"]');
