@@ -30,6 +30,10 @@ def download_youtube(url, output_format, quality=None):
         ydl_opts = {
             'noplaylist': True,
             'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s',
+            # Add cookies to bypass bot detection
+            'cookiefile': os.getenv('YOUTUBE_COOKIES', 'cookies.txt'),
+            # Mimic browser user-agent
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
 
         if output_format.lower() == "mp4":
