@@ -32,7 +32,11 @@ def download_youtube(url, output_format, quality=None):
             'http_headers': {
                 'Referer': 'https://www.youtube.com',
                 'Accept-Language': 'en-US,en;q=0.9',
+                'Origin': 'https://www.youtube.com',
             },
+            'ignoreerrors': False,  # Set to True to skip errors, but keep False for now to debug
+            'retries': 3,  # Retry up to 3 times for network issues
+            'skip_download': False,  # Ensure download attempt
         }
 
         buffer = BytesIO()
